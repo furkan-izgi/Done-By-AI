@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Time Keeper Settings</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            width: 320px;
+            margin: 0;
+            padding: 16px;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 12px;
+        }
+        .header img { width: 32px; height: 32px; }
+        .header h2 { margin: 0; font-size: 18px; font-weight: 600; color: #2ecc71; }
+        .form-group {
+            margin-bottom: 16px;
+            background: #2a2a2a;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #333;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            margin-bottom: 6px;
+            color: #aaa;
+            font-weight: bold;
+        }
+        .row { display: flex; gap: 8px; margin-bottom: 8px; }
+        input[type="number"], input[type="text"], select, input[type="color"] {
+            width: 100%;
+            background: #1e1e1e;
+            border: 1px solid #444;
+            color: white;
+            padding: 6px;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        input[type="color"] { padding: 2px; height: 32px; cursor: pointer; }
+        .icon-input { width: 50px !important; text-align: center; }
+        .btn {
+            width: 100%;
+            background: #2ecc71;
+            color: #000;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn:hover { background: #27ae60; }
+        .status { text-align: center; font-size: 12px; margin-top: 8px; color: #2ecc71; display: none; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="icon.svg" alt="Logo">
+        <h2>Time Keeper</h2>
+    </div>
+
+    <!-- Daily Goal -->
+    <div class="form-group">
+        <label>Daily Limit (Minutes)</label>
+        <input type="number" id="dailyLimit" min="1" max="1440" value="60">
+    </div>
+
+    <!-- Stage 1 (0 mins) -->
+    <div class="form-group">
+        <label>Start Stage (0 mins)</label>
+        <div class="row">
+            <input type="text" id="s0_icon" class="icon-input" title="Icon (Emoji)" value="🟢">
+            <input type="color" id="s0_color" value="#2ecc71" title="Color">
+            <select id="s0_sound">
+                <option value="none">No Sound</option>
+                <option value="chime">Chime</option>
+                <option value="warning">Warning</option>
+                <option value="siren">Siren</option>
+                <option value="beep">Beep</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Stage 2 -->
+    <div class="form-group">
+        <label>Warning Stage 1</label>
+        <div class="row">
+            <input type="number" id="s1_time" placeholder="Mins" value="15" title="Minutes to trigger">
+            <input type="text" id="s1_icon" class="icon-input" value="⏱️">
+            <input type="color" id="s1_color" value="#f1c40f">
+        </div>
+        <select id="s1_sound">
+            <option value="none">No Sound</option>
+            <option value="chime" selected>Chime</option>
+            <option value="warning">Warning</option>
+            <option value="siren">Siren</option>
+            <option value="beep">Beep</option>
+        </select>
+    </div>
+
+    <!-- Stage 3 -->
+    <div class="form-group">
+        <label>Warning Stage 2</label>
+        <div class="row">
+            <input type="number" id="s2_time" placeholder="Mins" value="30">
+            <input type="text" id="s2_icon" class="icon-input" value="⚠️">
+            <input type="color" id="s2_color" value="#e67e22">
+        </div>
+        <select id="s2_sound">
+            <option value="none">No Sound</option>
+            <option value="chime">Chime</option>
+            <option value="warning" selected>Warning</option>
+            <option value="siren">Siren</option>
+            <option value="beep">Beep</option>
+        </select>
+    </div>
+
+    <!-- Stage 4 (Over Limit) -->
+    <div class="form-group">
+        <label>Limit Reached Stage</label>
+        <div class="row">
+            <input type="text" id="s3_icon" class="icon-input" value="🛑">
+            <input type="color" id="s3_color" value="#e74c3c">
+            <select id="s3_sound">
+                <option value="none">No Sound</option>
+                <option value="chime">Chime</option>
+                <option value="warning">Warning</option>
+                <option value="siren" selected>Siren</option>
+                <option value="beep">Beep</option>
+            </select>
+        </div>
+    </div>
+
+    <button class="btn" id="saveBtn">Save Settings</button>
+    <div class="status" id="statusMsg">Settings saved successfully!</div>
+
+    <script src="popup.js"></script>
+</body>
+</html>
