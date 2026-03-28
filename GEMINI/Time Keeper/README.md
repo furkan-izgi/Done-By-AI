@@ -57,5 +57,13 @@ A browser extension that tracks how much time you spend on time-wasting websites
 ## Screenshot
 
 <p align="center">
-  <img src="image.png" alt="X Logo" width="256">
+  <img src="extended.png" alt="X Logo" width="256">
+</p>
+
+<p align="center">
+  <img src="minimized.png" alt="X Logo" width="192">
+</p>
+
+<p align="center">
+  <img src="settings.png" alt="X Logo" width="256">
 </p>
