@@ -1,110 +1,67 @@
 const api = typeof chrome !== "undefined" ? chrome : browser;
 
-// Select elements
-const limitEl = document.getElementById('dailyLimit');
-const s0_icon = document.getElementById('s0_icon'), s0_color = document.getElementById('s0_color'), s0_sound = document.getElementById('s0_sound');
-const s1_time = document.getElementById('s1_time'), s1_icon = document.getElementById('s1_icon'), s1_color = document.getElementById('s1_color'), s1_sound = document.getElementById('s1_sound');
-const s2_time = document.getElementById('s2_time'), s2_icon = document.getElementById('s2_icon'), s2_color = document.getElementById('s2_color'), s2_sound = document.getElementById('s2_sound');
-const s3_icon = document.getElementById('s3_icon'), s3_color = document.getElementById('s3_color'), s3_sound = document.getElementById('s3_sound');
+const getEl = (id) => document.getElementById(id);
+const inputs = {
+    limit: getEl('dailyLimit'),
+    s0: { icon: getEl('s0_icon'), color: getEl('s0_color'), sound: getEl('s0_sound') },
+    s1: { time: getEl('s1_time'), icon: getEl('s1_icon'), color: getEl('s1_color'), sound: getEl('s1_sound') },
+    s2: { time: getEl('s2_time'), icon: getEl('s2_icon'), color: getEl('s2_color'), sound: getEl('s2_sound') },
+    s3: { icon: getEl('s3_icon'), color: getEl('s3_color'), sound: getEl('s3_sound') }
+};
 
-// --- NEW: Audio Preview Function ---
-function playSound(soundType) {
+function playSoundPreview(soundType) {
     if (!soundType || soundType === 'none') return;
     try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const now = ctx.currentTime;
-        
-        if (soundType === 'chime') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(523.25, now);
-            osc.frequency.setValueAtTime(659.25, now + 0.2);
-            gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(0.3, now + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-            osc.start(now);
-            osc.stop(now + 0.8);
-        } else if (soundType === 'warning') {
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(300, now);
-            osc.frequency.setValueAtTime(400, now + 0.2);
-            gain.gain.setValueAtTime(0.1, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-            osc.start(now);
-            osc.stop(now + 0.5);
-        } else if (soundType === 'siren') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(400, now);
-            osc.frequency.linearRampToValueAtTime(800, now + 0.3);
-            osc.frequency.linearRampToValueAtTime(400, now + 0.6);
-            gain.gain.setValueAtTime(0.1, now);
-            gain.gain.linearRampToValueAtTime(0, now + 0.6);
-            osc.start(now);
-            osc.stop(now + 0.6);
-        } else if (soundType === 'beep') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(800, now);
-            gain.gain.setValueAtTime(0.2, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-            osc.start(now);
-            osc.stop(now + 0.2);
+        const tone = (f, s, d, t='sine', v=0.2) => {
+            const o = ctx.createOscillator(); const g = ctx.createGain();
+            o.type = t; o.frequency.setValueAtTime(f, s);
+            g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(v, s + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, s + d);
+            o.connect(g); g.connect(ctx.destination); o.start(s); o.stop(s + d);
+        };
+        if (soundType === 'chime') { tone(523, now, 0.8); tone(659, now+0.2, 0.8); }
+        else if (soundType === 'warning') { tone(440, now, 0.4); tone(349, now+0.2, 0.4); }
+        else if (soundType === 'radar') { for(let i=0; i<3; i++) tone(1200, now+(i*0.15), 0.1); }
+        else if (soundType === 'success') { tone(523, now, 0.1); tone(659, now+0.1, 0.1); tone(783, now+0.2, 0.1); tone(1046, now+0.3, 0.3); }
+        else if (soundType === 'siren') {
+            const o = ctx.createOscillator(); const g = ctx.createGain();
+            o.type = 'sawtooth'; o.frequency.setValueAtTime(400, now);
+            o.frequency.linearRampToValueAtTime(800, now+0.3); o.frequency.linearRampToValueAtTime(400, now+0.6);
+            g.gain.setValueAtTime(0.1, now); g.gain.linearRampToValueAtTime(0, now+0.6);
+            o.connect(g); g.connect(ctx.destination); o.start(); o.stop(now+0.6);
         }
-    } catch (e) {
-        console.log("Audio preview failed.", e);
-    }
+    } catch(e) {}
 }
 
-// --- NEW: Add Event Listeners for Sound Preview ---
-[s0_sound, s1_sound, s2_sound, s3_sound].forEach(selectElement => {
-    selectElement.addEventListener('change', (e) => {
-        playSound(e.target.value);
-    });
+[inputs.s0.sound, inputs.s1.sound, inputs.s2.sound, inputs.s3.sound].forEach(s => {
+    s.addEventListener('change', (e) => playSoundPreview(e.target.value));
 });
-// ------------------------------------
 
-// Load saved settings
-api.storage.local.get(['userConfig'], (result) => {
-    if (result.userConfig) {
-        const conf = result.userConfig;
-        limitEl.value = conf.dailyLimitSeconds / 60;
-        
-        s0_icon.value = conf.stages[0].icon; s0_color.value = conf.stages[0].color; s0_sound.value = conf.stages[0].sound;
-        
-        s1_time.value = conf.stages[1].threshold / 60; s1_icon.value = conf.stages[1].icon; 
-        s1_color.value = conf.stages[1].color; s1_sound.value = conf.stages[1].sound;
-
-        s2_time.value = conf.stages[2].threshold / 60; s2_icon.value = conf.stages[2].icon; 
-        s2_color.value = conf.stages[2].color; s2_sound.value = conf.stages[2].sound;
-
-        s3_icon.value = conf.stages[3].icon; s3_color.value = conf.stages[3].color; s3_sound.value = conf.stages[3].sound;
+api.storage.local.get(['userConfig'], (r) => {
+    if (r.userConfig) {
+        const c = r.userConfig;
+        inputs.limit.value = c.dailyLimitSeconds / 60;
+        inputs.s0.icon.value = c.stages[0].icon; inputs.s0.color.value = c.stages[0].color; inputs.s0.sound.value = c.stages[0].sound;
+        inputs.s1.time.value = c.stages[1].threshold / 60; inputs.s1.icon.value = c.stages[1].icon; inputs.s1.color.value = c.stages[1].color; inputs.s1.sound.value = c.stages[1].sound;
+        inputs.s2.time.value = c.stages[2].threshold / 60; inputs.s2.icon.value = c.stages[2].icon; inputs.s2.color.value = c.stages[2].color; inputs.s2.sound.value = c.stages[2].sound;
+        inputs.s3.icon.value = c.stages[3].icon; inputs.s3.color.value = c.stages[3].color; inputs.s3.sound.value = c.stages[3].sound;
     }
 });
 
-// Save Button Event
-document.getElementById('saveBtn').addEventListener('click', () => {
-    const dailyLimitSecs = parseInt(limitEl.value) * 60;
-    
-    const newConfig = {
-        dailyLimitSeconds: dailyLimitSecs,
+getEl('saveBtn').addEventListener('click', () => {
+    const lim = parseInt(inputs.limit.value) * 60;
+    const config = {
+        dailyLimitSeconds: lim,
         stages: [
-            { threshold: 0, icon: s0_icon.value, color: s0_color.value, sound: s0_sound.value },
-            { threshold: parseInt(s1_time.value) * 60, icon: s1_icon.value, color: s1_color.value, sound: s1_sound.value },
-            { threshold: parseInt(s2_time.value) * 60, icon: s2_icon.value, color: s2_color.value, sound: s2_sound.value },
-            { threshold: dailyLimitSecs, icon: s3_icon.value, color: s3_color.value, sound: s3_sound.value }
+            { threshold: 0, icon: inputs.s0.icon.value, color: inputs.s0.color.value, sound: inputs.s0.sound.value },
+            { threshold: parseInt(inputs.s1.time.value)*60, icon: inputs.s1.icon.value, color: inputs.s1.color.value, sound: inputs.s1.sound.value },
+            { threshold: parseInt(inputs.s2.time.value)*60, icon: inputs.s2.icon.value, color: inputs.s2.color.value, sound: inputs.s2.sound.value },
+            { threshold: lim, icon: inputs.s3.icon.value, color: inputs.s3.color.value, sound: inputs.s3.sound.value }
         ]
     };
-
-    api.storage.local.set({ userConfig: newConfig }, () => {
-        const msg = document.getElementById('statusMsg');
-        msg.style.display = 'block';
-        setTimeout(() => { msg.style.display = 'none'; }, 2000);
+    api.storage.local.set({ userConfig: config }, () => {
+        const m = getEl('statusMsg'); m.style.display='block'; setTimeout(()=>m.style.display='none', 2000);
     });
 });

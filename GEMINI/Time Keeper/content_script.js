@@ -1,319 +1,105 @@
-// API for browser compatibility
 const api = typeof chrome !== "undefined" ? chrome : browser;
 
-// Default Configuration (Used if user hasn't saved anything in popup yet)
 let CONFIG = {
-    dailyLimitSeconds: 3600,
+    dailyLimitSeconds: 7200,
     stages: [
-        { threshold: 0,    icon: '🟢', color: '#2ecc71', sound: 'none' },
-        { threshold: 900,  icon: '⏱️', color: '#f1c40f', sound: 'chime' },   // 15 mins
-        { threshold: 1800, icon: '⚠️', color: '#e67e22', sound: 'warning' }, // 30 mins
-        { threshold: 3600, icon: '🛑', color: '#e74c3c', sound: 'siren' }    // 60 mins
+        { threshold: 0, icon: '🟢', color: '#2ecc71', sound: 'none' },
+        { threshold: 900, icon: '🟡', color: '#f1c40f', sound: 'chime' },
+        { threshold: 1800, icon: '🟠', color: '#e67e22', sound: 'warning' },
+        { threshold: 3600, icon: '🔴', color: '#e74c3c', sound: 'siren' }
     ]
 };
 
+let audioCtx = null;
+let totalSeconds = 0, currentStageIndex = 0, isMinimized = false;
 const host = window.location.hostname;
-const dateObj = new Date();
-const todayString = `${dateObj.getFullYear()}-${dateObj.getMonth() + 1}-${dateObj.getDate()}`;
+const todayString = new Date().toISOString().split('T')[0];
 
-let totalSeconds = 0;
-let currentStageIndex = 0; 
-let isMinimized = false;   
+const unlockAudio = () => {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+};
+window.addEventListener('click', unlockAudio, { once: true });
 
-const textPrefix = "Time Keeper: You've spent ";
-const textSuffix = " on this site today.";
-
-// Helper function to convert seconds to HH:MM:SS format
-function formatTime(seconds) {
-    const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
-    const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
-    const s = String(seconds % 60).padStart(2, '0');
-    return `${h}:${m}:${s}`;
-}
-
-// Function to generate and play sounds
 function playSound(soundType) {
     if (!soundType || soundType === 'none') return;
+    unlockAudio(); if (!audioCtx) return;
     try {
-        const AudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!AudioContext) return;
-        
-        const ctx = new AudioContext();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        
-        const now = ctx.currentTime;
-        
-        if (soundType === 'chime') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(523.25, now);
-            osc.frequency.setValueAtTime(659.25, now + 0.2);
-            gain.gain.setValueAtTime(0, now);
-            gain.gain.linearRampToValueAtTime(0.3, now + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-            osc.start(now);
-            osc.stop(now + 0.8);
-        } else if (soundType === 'warning') {
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(300, now);
-            osc.frequency.setValueAtTime(400, now + 0.2);
-            gain.gain.setValueAtTime(0.1, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
-            osc.start(now);
-            osc.stop(now + 0.5);
-        } else if (soundType === 'siren') {
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(400, now);
-            osc.frequency.linearRampToValueAtTime(800, now + 0.3);
-            osc.frequency.linearRampToValueAtTime(400, now + 0.6);
-            gain.gain.setValueAtTime(0.1, now);
-            gain.gain.linearRampToValueAtTime(0, now + 0.6);
-            osc.start(now);
-            osc.stop(now + 0.6);
-        } else if (soundType === 'beep') {
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(800, now);
-            gain.gain.setValueAtTime(0.2, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-            osc.start(now);
-            osc.stop(now + 0.2);
+        const now = audioCtx.currentTime;
+        const tone = (f, s, d, t='sine', v=0.15) => {
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.type = t; o.frequency.setValueAtTime(f, s);
+            g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(v, s + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.001, s + d);
+            o.connect(g); g.connect(audioCtx.destination); o.start(s); o.stop(s + d);
+        };
+        if (soundType === 'chime') { tone(523, now, 0.8); tone(659, now+0.2, 0.8); }
+        else if (soundType === 'warning') { tone(440, now, 0.4); tone(349, now+0.2, 0.4); }
+        else if (soundType === 'radar') { for(let i=0; i<3; i++) tone(1200, now+(i*0.15), 0.1); }
+        else if (soundType === 'success') { tone(523, now, 0.1); tone(659, now+0.1, 0.1); tone(783, now+0.2, 0.1); tone(1046, now+0.3, 0.3); }
+        else if (soundType === 'siren') {
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.type = 'sawtooth'; o.frequency.setValueAtTime(400, now);
+            o.frequency.linearRampToValueAtTime(800, now+0.3); o.frequency.linearRampToValueAtTime(400, now+0.6);
+            g.gain.setValueAtTime(0.1, now); g.gain.linearRampToValueAtTime(0, now+0.6);
+            o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(now+0.6);
         }
-    } catch (e) {
-        console.log("Time Keeper: Audio playback blocked or failed.", e);
-    }
+    } catch(e) {}
 }
 
-// Function to determine the correct stage
-function getStageIndex(seconds) {
-    let index = 0;
-    for (let i = 0; i < CONFIG.stages.length; i++) {
-        if (seconds >= CONFIG.stages[i].threshold) {
-            index = i;
-        }
-    }
-    return index;
+function formatTime(s) {
+    const h = Math.floor(s/3600), m = String(Math.floor((s%3600)/60)).padStart(2,'0'), sec = String(s%60).padStart(2,'0');
+    return h > 0 ? `${String(h).padStart(2,'0')}:${m}:${sec}` : `${m}:${sec}`;
 }
 
-// Create UI
+function updateUI() {
+    if (!document.getElementById('time-keeper-container')) createUI();
+    const container = document.getElementById('time-keeper-container'), textEl = document.getElementById('time-keeper-text');
+    const progressEl = document.getElementById('time-keeper-progress'), iconEl = document.getElementById('time-keeper-icon');
+    if (!container) return;
+
+    const formatted = formatTime(totalSeconds);
+    container.setAttribute('data-time', formatted);
+    if (!isMinimized) textEl.innerText = `You've spent ${formatted} on this site today.`;
+
+    let perc = (totalSeconds / CONFIG.dailyLimitSeconds) * 100;
+    progressEl.style.width = `${Math.min(perc, 100)}%`;
+
+    let idx = 0;
+    for (let i=0; i<CONFIG.stages.length; i++) if (totalSeconds >= CONFIG.stages[i].threshold) idx = i;
+    
+    if (idx > currentStageIndex) {
+        currentStageIndex = idx;
+        if (CONFIG.stages[idx].sound !== 'none') playSound(CONFIG.stages[idx].sound);
+    }
+    progressEl.style.backgroundColor = CONFIG.stages[idx].color;
+    iconEl.innerText = CONFIG.stages[idx].icon;
+}
+
 function createUI() {
-    if (document.getElementById('time-keeper-container')) return;
-
     const style = document.createElement('style');
-    style.id = 'time-keeper-styles';
-    style.innerHTML = `
-        #time-keeper-container {
-            position: fixed;
-            bottom: 24px;
-            left: 24px;
-            z-index: 999999;
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: rgba(20, 20, 20, 0.75);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: white;
-            overflow: hidden;
-            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
-            display: flex;
-            flex-direction: column;
-            cursor: pointer;
-            user-select: none;
-            max-width: 600px;
-            box-sizing: border-box; /* EKLENDI: Kutu modelini netleştirir */
-        }
-        #time-keeper-container:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
-            background: rgba(30, 30, 30, 0.85);
-        }
-        /* FIXED: Centering logic for minimized state */
-        #time-keeper-container.minimized {
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            padding: 0;
-            justify-content: center;
-            align-items: center;
-        }
-        #time-keeper-content {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 12px 20px;
-            gap: 12px;
-            white-space: nowrap;
-            width: 100%;
-            height: 100%;
-            box-sizing: border-box;
-        }
-        .minimized #time-keeper-content {
-            padding: 0;
-            gap: 0;
-        }
-        #time-keeper-icon {
-            font-size: 20px;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0;
-            padding: 0;
-        }
-        #time-keeper-text {
-            font-size: 14px;
-            font-weight: 500;
-            letter-spacing: 0.3px;
-        }
-        /* FIXED: Completely hide text to prevent flexbox offset */
-        .minimized #time-keeper-text {
-            display: none !important; 
-        }
-        #time-keeper-progress-bg {
-            width: 100%;
-            height: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-        }
-        .minimized #time-keeper-progress-bg {
-            display: none;
-        }
-        #time-keeper-progress {
-            height: 100%;
-            width: 0%;
-            background: ${CONFIG.stages[0].color};
-            transition: width 1s linear, background-color 0.5s ease;
-        }
-    `;
+    style.innerHTML = `#time-keeper-container { position: fixed; bottom: 24px; left: 24px; z-index: 999999; font-family: sans-serif; background: rgba(20,20,20,0.75); backdrop-filter: blur(12px); border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); color: white; display: flex; flex-direction: column; cursor: pointer; transition: all 0.4s; overflow: visible; }
+    #time-keeper-container.minimized { border-radius: 50%; width: 50px; height: 50px; }
+    #time-keeper-container.minimized::after { content: attr(data-time); position: absolute; bottom: 60px; left: 50%; transform: translateX(-50%); background: #000; padding: 6px 12px; border-radius: 8px; opacity: 0; visibility: hidden; transition: 0.2s; white-space: nowrap; }
+    #time-keeper-container.minimized:hover::after { opacity: 1; visibility: visible; }
+    #time-keeper-content { display: flex; align-items: center; padding: 12px 20px; gap: 12px; }
+    .minimized #time-keeper-content { padding: 0; justify-content: center; height: 100%; }
+    .minimized #time-keeper-text { display: none; }
+    #time-keeper-progress-bg { width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 0 0 16px 16px; overflow: hidden; }
+    .minimized #time-keeper-progress-bg { display: none; }
+    #time-keeper-progress { height: 100%; transition: width 1s linear; }`;
     document.head.appendChild(style);
 
-    const container = document.createElement('div');
-    container.id = 'time-keeper-container';
-    container.title = "Click to minimize/maximize";
-    
-    const content = document.createElement('div');
-    content.id = 'time-keeper-content';
-    
-    const icon = document.createElement('span');
-    icon.id = 'time-keeper-icon';
-    icon.innerText = CONFIG.stages[0].icon;
-
-    const text = document.createElement('span');
-    text.id = 'time-keeper-text';
-
-    content.appendChild(icon);
-    content.appendChild(text);
-
-    const progressBg = document.createElement('div');
-    progressBg.id = 'time-keeper-progress-bg';
-    
-    const progress = document.createElement('div');
-    progress.id = 'time-keeper-progress';
-    
-    progressBg.appendChild(progress);
-
-    container.appendChild(content);
-    container.appendChild(progressBg);
-    document.body.appendChild(container);
-
-    container.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation(); 
-        isMinimized = !isMinimized;
-        api.storage.local.set({ isMinimizedSetting: isMinimized }); 
-        updateUI(); 
-    });
+    const c = document.createElement('div'); c.id = 'time-keeper-container';
+    c.innerHTML = `<div id="time-keeper-content"><span id="time-keeper-icon"></span><span id="time-keeper-text"></span></div><div id="time-keeper-progress-bg"><div id="time-keeper-progress"></div></div>`;
+    document.body.appendChild(c);
+    c.onclick = () => { isMinimized = !isMinimized; c.classList.toggle('minimized', isMinimized); updateUI(); };
 }
 
-// Update UI
-function updateUI() {
-    createUI(); 
-
-    const container = document.getElementById('time-keeper-container');
-    const textEl = document.getElementById('time-keeper-text');
-    const progressEl = document.getElementById('time-keeper-progress');
-    const iconEl = document.getElementById('time-keeper-icon');
-    
-    if (!container || !textEl || !progressEl || !iconEl) return;
-
-    if (isMinimized) {
-        container.classList.add('minimized');
-        iconEl.style.fontSize = '24px';
-    } else {
-        container.classList.remove('minimized');
-        iconEl.style.fontSize = '20px';
-    }
-
-    textEl.innerText = `${textPrefix}${formatTime(totalSeconds)}${textSuffix}`;
-
-    let percentage = (totalSeconds / CONFIG.dailyLimitSeconds) * 100;
-    if (percentage > 100) percentage = 100;
-    progressEl.style.width = `${percentage}%`;
-
-    const newStageIndex = getStageIndex(totalSeconds);
-    
-    if (newStageIndex > currentStageIndex) {
-        currentStageIndex = newStageIndex; 
-        
-        if (CONFIG.stages[currentStageIndex].sound !== 'none') {
-            playSound(CONFIG.stages[currentStageIndex].sound);
-        }
-    }
-
-    progressEl.style.backgroundColor = CONFIG.stages[currentStageIndex].color;
-    iconEl.innerText = CONFIG.stages[currentStageIndex].icon;
-}
-
-// Save time to storage
-function saveData() {
-    const dataToSave = {};
-    dataToSave[host] = { date: todayString, time: totalSeconds };
-    api.storage.local.set(dataToSave);
-}
-
-// Listen for settings changes from Popup
-api.storage.onChanged.addListener((changes, namespace) => {
-    if (namespace === 'local' && changes.userConfig) {
-        CONFIG = changes.userConfig.newValue;
-        currentStageIndex = getStageIndex(totalSeconds); // Re-calculate stage
-        updateUI();
-    }
-});
-
-// Init
-api.storage.local.get([host, 'isMinimizedSetting', 'userConfig'], (result) => {
-    
-    if (result.userConfig) {
-        CONFIG = result.userConfig;
-    }
-
-    if (result.isMinimizedSetting !== undefined) {
-        isMinimized = result.isMinimizedSetting;
-    }
-
-    const data = result[host];
-    if (data && data.date === todayString) {
-        totalSeconds = data.time;
-    } else {
-        totalSeconds = 0; 
-    }
-
-    currentStageIndex = getStageIndex(totalSeconds);
+api.storage.local.get([host, 'userConfig'], (r) => {
+    if (r.userConfig) CONFIG = r.userConfig;
+    const stored = r[host];
+    if (stored && stored.date === todayString) totalSeconds = stored.time;
     updateUI();
-
-    setInterval(() => {
-        if (!document.hidden) {
-            totalSeconds++;
-            updateUI();
-            saveData();
-        }
-    }, 1000);
-});
-
-window.addEventListener("beforeunload", () => {
-    saveData();
+    setInterval(() => { if (!document.hidden) { totalSeconds++; updateUI(); if (totalSeconds % 10 === 0) api.storage.local.set({ [host]: { date: todayString, time: totalSeconds } }); } }, 1000);
 });

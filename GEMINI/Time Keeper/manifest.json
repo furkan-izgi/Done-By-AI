@@ -1,27 +1,20 @@
 {
   "manifest_version": 3,
-  "name": "Time Keeper",
-  "version": "2.0",
-  "description": "Track the time you spend on distracting websites. Customize limits and alerts.",
-  "permissions": [
-    "storage"
-  ],
-  "host_permissions": [
-    "*://*.youtube.com/*"
-  ],
+  "name": "Time Keeper Pro",
+  "version": "2.1",
+  "description": "Web sitelerinde geçirdiğin süreyi takip et ve özel sesli uyarılar kur.",
+  "permissions": ["storage"],
+  "host_permissions": ["*://*.youtube.com/*"],
   "action": {
     "default_popup": "popup.html",
     "default_icon": "icon.svg"
   },
   "icons": {
-    "48": "icon.svg",
     "128": "icon.svg"
   },
   "content_scripts": [
     {
-      "matches": [
-        "*://*.youtube.com/*"
-      ],
+      "matches": ["*://*.youtube.com/*"],
       "js": ["content_script.js"],
       "run_at": "document_idle"
     }
