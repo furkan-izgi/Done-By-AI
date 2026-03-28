@@ -1,5 +1,9 @@
 # Time Keeper
 
+<p align="center">
+  <img src="icon.svg" alt="Time Keeper Icon" width="256">
+</p>
+
 A browser extension that tracks how much time you spend on time-wasting websites (YouTube, Instagram, etc.) and alerts you visually and audibly.
 
 ## Features
@@ -49,3 +53,9 @@ A browser extension that tracks how much time you spend on time-wasting websites
 * **Manifest V3**
 * **CSS3 (Blur & Flexbox)**
 * **Web Audio API**
+
+## Screenshot
+
+<p align="center">
+  <img src="image.png" alt="X Logo" width="256">
+</p>
